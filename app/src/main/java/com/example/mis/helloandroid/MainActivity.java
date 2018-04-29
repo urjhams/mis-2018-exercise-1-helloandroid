@@ -1,9 +1,9 @@
 package com.example.mis.helloandroid;
 
-import android.app.Activity;
 import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
+import android.os.Build;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.Gravity;
@@ -15,13 +15,15 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
+import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 
 enum urlStatus {
     IS_URL,
     IS_A_WORD,
     NOTHING,
-    IS_A_NO_PROTOCOL_URL;
+    IS_A_NO_PROTOCOL_URL
 }
 
 public class MainActivity extends AppCompatActivity {
@@ -35,9 +37,9 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         //register
-        urlField = (EditText) findViewById(R.id.editText2);
-        connectButton = (Button) findViewById(R.id.button);
-        siteView = (WebView) findViewById(R.id.websiteView);
+        urlField = findViewById(R.id.editText2);
+        connectButton = findViewById(R.id.button);
+        siteView = findViewById(R.id.websiteView);
 
         siteView.setWebViewClient(new WebViewClient() {
             @Override
@@ -45,12 +47,6 @@ public class MainActivity extends AppCompatActivity {
                 super.onReceivedError(view, errorCode, description, failingUrl);
                 toastWithContent("Error code: " + Integer.toString(errorCode) + "\n" + description);
             }
-
-//            @Override
-//            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-//                siteView.loadUrl(request.getUrl());
-//                return true;
-//            }
 
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
@@ -60,14 +56,14 @@ public class MainActivity extends AppCompatActivity {
         });
 
         // check network connection
-        if (!hasNetwork()) {
+        if (hasNoNetwork()) {
             this.toastWithContent("No network connection");
         }
     }
 
-    private boolean hasNetwork() {
+    private boolean hasNoNetwork() {
         ConnectivityManager connectMng = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
-        NetworkInfo netInfo = connectMng.getActiveNetworkInfo();
+        NetworkInfo netInfo = connectMng != null ? connectMng.getActiveNetworkInfo() : null;
         return netInfo != null && netInfo.isConnected();
     }
 
@@ -76,10 +72,12 @@ public class MainActivity extends AppCompatActivity {
 
         //dismiss keyboard
         InputMethodManager inputMng = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
-        inputMng.hideSoftInputFromWindow(this.urlField.getWindowToken(), 0);
+        if (inputMng != null) {
+            inputMng.hideSoftInputFromWindow(this.urlField.getWindowToken(), 0);
+        }
 
         //check network
-        if (!hasNetwork()) {
+        if (hasNoNetwork()) {
             this.toastWithContent("No network connection");
             return;
         }
@@ -96,7 +94,15 @@ public class MainActivity extends AppCompatActivity {
                 toastWithContent("You must text something");
                 break;
             case IS_A_WORD:
-                String googleUrl = "https://google.de/search?q=" + URLEncoder.encode(input);
+                String googleUrl = null;
+                try {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+                        googleUrl = "https://google.de/search?q=" + URLEncoder.encode(input,
+                                StandardCharsets.UTF_8.toString());
+                    }
+                } catch (UnsupportedEncodingException e) {
+                    e.printStackTrace();
+                }
                 siteView.loadUrl(googleUrl);
                 break;
             case IS_A_NO_PROTOCOL_URL:
@@ -104,7 +110,7 @@ public class MainActivity extends AppCompatActivity {
                 break;
         }
     }
-    
+
     private void toastWithContent(String content) {
         Toast toast = Toast.makeText(MainActivity.this, content, Toast.LENGTH_SHORT);
         toast.setGravity(Gravity.CENTER, 0, 0);
@@ -112,18 +118,18 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private urlStatus validateInput(String input) {
-        if (input.isEmpty()) {         // has a charater in edittext
+        if (input.isEmpty()) {              // has a character in edit text
             return urlStatus.NOTHING;
-        } else {                        // else ---> check is a valid url or not
+        } else {                            // else ---> check is a valid url or not
             try {
-                String lastPrefix = input.substring(input.lastIndexOf("."));    // the exception mean there is no lastPrefix like ".com"
+                String lastPrefix = input.substring(input.lastIndexOf("."));
                 System.out.println("prefix: " + lastPrefix);
                 if (input.startsWith("http://") || input.startsWith("http://")) {
                     return urlStatus.IS_URL;
                 } else {
                     return urlStatus.IS_A_NO_PROTOCOL_URL;
                 }
-            } catch (Exception ex) {
+            } catch (Exception ex) {        // the exception mean there is no lastPrefix like ".com"
                 return urlStatus.IS_A_WORD;
             }
         }
